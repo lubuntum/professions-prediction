@@ -1,6 +1,6 @@
 from datetime import datetime
 import requests
-import json
+import pandas as pd
 
 
 def parsing(parse_type="All"):
@@ -32,24 +32,36 @@ def parsing(parse_type="All"):
     try:
         response = requests.get(url, params=params, headers=headers, timeout=10)
         data = response.json()
-        print(f"Найдено пользователей: {len(data)}")
+        # print(f"Найдено пользователей: {len(data)}")
     except requests.exceptions.ReadTimeout:
         return None
-    
-    for fio in data:
-        print(fio.get('accountId'), fio.get('fullName'), len(fio.get('psychTests', [])))
+    # список нужных тестовых значений
+    necessary = ["extravag_introver_score",
+                 "neirotizm_score", "company_worker",
+                 "chairman", "shaper", "plant",
+                 "resource_investigator", "monitor_evaluation",
+                 "team_worker", "completer_finisher",
+                 "engineering_thinking_level"]
+    # user_list - список где будет храниться значения
+    user_list = []
+    for user in data:
+        # user_dic - словарь каждого человека
+        user_dic = dict()
+        # Id и имя (его может не быть...)
+        user_dic["Id"] = user.get('accountId')
+        user_dic["fullName"] = user.get('fullName', None)
+        # Вытаскиваем параметры
+        for test in user.get('psychTests', []):        
+            for param in test.get('psychParams', []):
+                if param.get('name') in necessary:
+                    user_dic[param.get('name')] = param.get('param')
+        user_list.append(user_dic)
+    df_user = pd.DataFrame(user_list)
+    df_user.to_csv("test.csv", index=False, encoding="utf-8")
+    print(df_user)
+             
+
 
     
-    # if data:
-    #     first = data[223]
-    #     print(f"\nПервый пользователь:")
-    #     print(f"  акаунт: {first.get('accountId')}")
-    #     print(f"  ФИО: {first.get('fullName')}")
-    #     print(f"  Email: {first.get('email')}")
-    #     print(f"  Тестов пройдено: {len(first.get('psychTests', []))}")
-        
-    #     # Какие тесты проходил
-    #     for test in first.get('psychTests', []):
-    #         print(f"    - {test.get('testTypeName')}: {test.get('createdAt')[:10]}")
 
-parsing("Specialist")
+parsing("ALL")
