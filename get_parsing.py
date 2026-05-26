@@ -3,11 +3,9 @@ import requests
 import pandas as pd
 import login
 
-
-def parsing(parse_type="All"):
+def parsing(parse_type):
     """
     Данная функция будет возвращать пользователей с сайта
-    По умолчанию type="All" - все пользователи
     Pupil - ученики
     Specialist - специалисты 
     """
@@ -17,7 +15,7 @@ def parsing(parse_type="All"):
     formatted_date = now.strftime("%Y-%m-%d")
 
     # Получение токена
-    # login.start()
+    login.start()
     # Токен
     with open('token.txt', 'r', encoding="utf-8") as file:
         token = file.read()
@@ -32,7 +30,7 @@ def parsing(parse_type="All"):
         # Для "All" пока заглушка!!!!!
         print("Режим 'All' требует отдельной обработки")
         return None
-  
+    
     params = {
         "type": parse_type,
         "startDate": "2026-04-01",
@@ -49,7 +47,7 @@ def parsing(parse_type="All"):
         # print(f"Найдено пользователей: {len(data)}")
     except requests.exceptions.ReadTimeout:
         return None
-    
+
     # список нужных тестовых значений
     necessary = ["extravag_introver_score",
                  "neirotizm_score", "company_worker",
@@ -57,7 +55,7 @@ def parsing(parse_type="All"):
                  "resource_investigator", "monitor_evaluation",
                  "team_worker", "completer_finisher",
                  "engineering_thinking_level"]
-    
+
     # user_list - список где будет храниться значения
     user_list = []
 
@@ -65,10 +63,10 @@ def parsing(parse_type="All"):
         # user_dic - словарь каждого человека
         user_dic = {}
 
-        # Id 
+        # Id
         user_dic["Id"] = user.get('accountId')
 
-        # Извлекаем данные в зависимости от 
+        # Извлекаем данные в зависимости от
         # специалист это
         if parse_type == "Specialist" and 'specialist' in user:
             specialist = user['specialist']
@@ -92,7 +90,7 @@ def parsing(parse_type="All"):
             user_dic["gender"] = pupil.get('gender')
 
         # Вытаскиваем параметры
-        for test in user.get('psychTests', []):        
+        for test in user.get('psychTests', []):
             for param in test.get('psychParams', []):
                 # берем только те, что нам нужны для кластер.
                 if param.get('name') in necessary:
@@ -104,10 +102,10 @@ def parsing(parse_type="All"):
     # Удаляем строки, где есть хотя бы одно пропущенное значение
     # возможно это нужно перенести в другой файл
     df_user = df_user.dropna()
-    # печать и сохранение, временно
-    df_user.to_csv("test.csv", index=False, encoding="utf-8")
-    print(df_user)       
+    # печать и сохранение, возвращение
+    # df_user.to_csv("test.csv", index=False, encoding="utf-8")
+    return df_user
 
 # parsing("Specialist")
 # Pupil - ученики
-# Specialist - специалисты 
+# Specialist - специалисты
