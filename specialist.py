@@ -62,6 +62,7 @@ n_professions = len(unique_professions)
 # потом убрать!!!
 # print(f"Уникальных профессий: {n_professions}")
 # print(f"Профессии: {unique_professions}")
+# print(len(df_spec))
 
 
 # ----------------------- МАСШТАБИРОВАНИЕ -----------------------
