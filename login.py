@@ -9,5 +9,6 @@ def start():
     }
 
     response = requests.post(url, json=data)
-    with open('token.txt', 'w', encoding="utf-8") as file:
-        file.write(response.text)
+    return response.text
+
+# print(start())

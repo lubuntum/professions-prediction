@@ -29,6 +29,44 @@ DATA_DIR = 'data'  # Папка для данных
 OUTPUT_PREFIX = 'clustering_results'
 OUTPUT_DIR_USER = "data_user"  # Папка для результатов учеников
 
+# Загрузка категорий расстояний из CSV
+CATEGORY_FILE = 'category.csv'
+
+def load_distance_categories(file_path):
+    """Загружает категории расстояний из CSV файла"""
+    categories = []
+    with open(file_path, 'r', encoding='utf-8') as f:
+        # Пропускаем заголовок, шляпа нужна!!!
+        header = f.readline()
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split(',')
+            if len(parts) == 3:
+                min_val = float(parts[0])
+                if parts[1] == 'inf':
+                    max_val = float('inf')
+                else:
+                    max_val = float(parts[1])
+                category = parts[2]
+                categories.append({
+                    'min': min_val,
+                    'max': max_val,
+                    'category': category
+                })
+    return categories
+
+# Загружаем категории
+distance_categories = load_distance_categories(CATEGORY_FILE)
+
+def get_distance_category(distance):
+    """Определяет категорию для заданного расстояния"""
+    for cat_dis in distance_categories:
+        if cat_dis['min'] <= distance <= cat_dis['max']:
+            return cat_dis['category']
+    return "Не определено"
+
 timestamp_file = os.path.join(DATA_DIR, 'timestamp.txt')
 
 with open(timestamp_file, 'r', encoding='utf-8') as file:
@@ -112,16 +150,50 @@ for user_idx, (user_id, user_name, user_vec) in enumerate(zip(user_ids,
         indices_in_cluster = np.where(labels == user_cluster)[0]
 
         distances = cdist([user_vec], X_spec_scaled[indices_in_cluster])[0]
+        
+        # Сортируем по расстоянию
+        sorted_indices = np.argsort(distances)
+        
+        # Ближайший специалист
         nearest_idx_in_cluster = np.argmin(distances)
         nearest_spec_position = indices_in_cluster[nearest_idx_in_cluster]
         nearest_distance = distances[nearest_idx_in_cluster]
         predicted_profession = professions[nearest_spec_position]
         nearest_spec_id = spec_ids[nearest_spec_position]
+        
+        # Определяем категорию для ближайшего расстояния
+        distance_category = get_distance_category(nearest_distance)
 
         row[f'K{k}_cluster'] = int(user_cluster)
         row[f'K{k}_nearest_spec_id'] = int(nearest_spec_id)
         row[f'K{k}_distance'] = float(nearest_distance)
+        row[f'K{k}_distance_category'] = distance_category
         row[f'K{k}_profession'] = str(predicted_profession)
+        
+        # Для каждой категории находим ВСЕХ подходящих специалистов
+        categories_specialists = {}
+        
+        for cat in distance_categories:
+            cat_name = cat['category']
+            cat_min = cat['min']
+            cat_max = cat['max']
+            
+            # Находим всех специалистов, попадающих в этот диапазон
+            matching_specialists = []
+            for idx in sorted_indices:
+                spec_pos = indices_in_cluster[idx]
+                dist = distances[idx]
+                
+                if cat_min <= dist <= cat_max:
+                    matching_specialists.append({
+                        'spec_id': int(spec_ids[spec_pos]),
+                        'profession': str(professions[spec_pos]),
+                        'distance': float(dist)
+                    })
+            
+            categories_specialists[cat_name] = matching_specialists
+        
+        row[f'K{k}_categories'] = categories_specialists
 
     results_rows.append(row)
 

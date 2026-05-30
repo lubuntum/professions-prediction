@@ -15,10 +15,7 @@ def parsing(parse_type):
     formatted_date = now.strftime("%Y-%m-%d")
 
     # Получение токена
-    login.start()
-    # Токен
-    with open('token.txt', 'r', encoding="utf-8") as file:
-        token = file.read()
+    token = login.start()
 
     # Запрос
     # Выбор URL в зависимости от типа
@@ -106,6 +103,6 @@ def parsing(parse_type):
     # df_user.to_csv("test.csv", index=False, encoding="utf-8")
     return df_user
 
-# parsing("Specialist")
+# parsing("Pupil")
 # Pupil - ученики
 # Specialist - специалисты
