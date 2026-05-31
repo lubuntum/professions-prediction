@@ -1,6 +1,9 @@
 import requests
 
 def start():
+    """
+    Тут будет документация или нет
+    """
 
     url = "https://api.evcg.ru/api/auth/login"
     data = {
@@ -8,7 +11,7 @@ def start():
         "password": "123456789"         
     }
 
-    response = requests.post(url, json=data)
+    response = requests.post(url, json=data, timeout=10)
     return response.text
 
 # print(start())

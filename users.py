@@ -114,7 +114,7 @@ for k in k_values:
     # Загружаем модель
     with open(os.path.join(RUN_DIR, f'{OUTPUT_PREFIX}_kmeans_k{k}.pkl'), 'rb') as f:
         kmeans_models[k] = pickle.load(f)
-    
+
     # Загружаем метки кластеров
     cluster_labels_spec[k] = np.load(os.path.join(RUN_DIR, f'{OUTPUT_PREFIX}_labels_k{k}.npy'))
 
@@ -150,17 +150,17 @@ for user_idx, (user_id, user_name, user_vec) in enumerate(zip(user_ids,
         indices_in_cluster = np.where(labels == user_cluster)[0]
 
         distances = cdist([user_vec], X_spec_scaled[indices_in_cluster])[0]
-        
+
         # Сортируем по расстоянию
         sorted_indices = np.argsort(distances)
-        
+
         # Ближайший специалист
         nearest_idx_in_cluster = np.argmin(distances)
         nearest_spec_position = indices_in_cluster[nearest_idx_in_cluster]
         nearest_distance = distances[nearest_idx_in_cluster]
         predicted_profession = professions[nearest_spec_position]
         nearest_spec_id = spec_ids[nearest_spec_position]
-        
+
         # Определяем категорию для ближайшего расстояния
         distance_category = get_distance_category(nearest_distance)
 
@@ -169,30 +169,30 @@ for user_idx, (user_id, user_name, user_vec) in enumerate(zip(user_ids,
         row[f'K{k}_distance'] = float(nearest_distance)
         row[f'K{k}_distance_category'] = distance_category
         row[f'K{k}_profession'] = str(predicted_profession)
-        
+
         # Для каждой категории находим ВСЕХ подходящих специалистов
         categories_specialists = {}
-        
+
         for cat in distance_categories:
             cat_name = cat['category']
             cat_min = cat['min']
             cat_max = cat['max']
-            
+
             # Находим всех специалистов, попадающих в этот диапазон
             matching_specialists = []
             for idx in sorted_indices:
                 spec_pos = indices_in_cluster[idx]
                 dist = distances[idx]
-                
+
                 if cat_min <= dist <= cat_max:
                     matching_specialists.append({
                         'spec_id': int(spec_ids[spec_pos]),
                         'profession': str(professions[spec_pos]),
                         'distance': float(dist)
                     })
-            
+
             categories_specialists[cat_name] = matching_specialists
-        
+
         row[f'K{k}_categories'] = categories_specialists
 
     results_rows.append(row)

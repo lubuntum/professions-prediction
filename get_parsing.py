@@ -27,7 +27,7 @@ def parsing(parse_type):
         # Для "All" пока заглушка!!!!!
         print("Режим 'All' требует отдельной обработки")
         return None
-    
+
     params = {
         "type": parse_type,
         "startDate": "2026-04-01",
@@ -60,13 +60,12 @@ def parsing(parse_type):
         # user_dic - словарь каждого человека
         user_dic = {}
 
-        # Id
-        user_dic["Id"] = user.get('accountId')
-
         # Извлекаем данные в зависимости от
         # специалист это
         if parse_type == "Specialist" and 'specialist' in user:
             specialist = user['specialist']
+            # Id
+            user_dic["Id"] = specialist.get('id')
             parts = [specialist.get('surname', ''),
                     specialist.get('name', ''),
                     specialist.get('patronymic', '')]
@@ -76,6 +75,8 @@ def parsing(parse_type):
         # или школьник
         elif parse_type == "Pupil" and 'pupil' in user:
             pupil = user['pupil']
+            # Id
+            user_dic["Id"] = pupil.get('id')
             parts = [pupil.get('surname', ''),
                     pupil.get('name', ''),
                     pupil.get('patronymic', '')]
@@ -100,9 +101,9 @@ def parsing(parse_type):
     # возможно это нужно перенести в другой файл
     df_user = df_user.dropna()
     # печать и сохранение, возвращение
-    # df_user.to_csv("test.csv", index=False, encoding="utf-8")
+    df_user.to_csv("test.csv", index=False, encoding="utf-8")
     return df_user
 
-# parsing("Pupil")
+# parsing("Specialist")
 # Pupil - ученики
 # Specialist - специалисты
