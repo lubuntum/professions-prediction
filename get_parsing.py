@@ -101,7 +101,7 @@ def parsing(parse_type):
     # возможно это нужно перенести в другой файл
     df_user = df_user.dropna()
     # печать и сохранение, возвращение
-    df_user.to_csv("test.csv", index=False, encoding="utf-8")
+    # df_user.to_csv("test.csv", index=False, encoding="utf-8")
     return df_user
 
 # parsing("Specialist")

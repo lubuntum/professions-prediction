@@ -85,6 +85,11 @@ with open(os.path.join(RUN_DIR, f'{OUTPUT_PREFIX}_scaler.pkl'), 'rb') as f:
 with open(os.path.join(RUN_DIR, f'{OUTPUT_PREFIX}_df_spec.pkl'), 'rb') as f:
     df_spec = pickle.load(f)
 
+# Загружаем метрики SS, DBI, CHI
+metrics_path = os.path.join(RUN_DIR, f'{OUTPUT_PREFIX}_all_metrics.pkl')
+with open(metrics_path, 'rb') as f:
+    all_metrics = pickle.load(f)
+
 # Загружаем масштабированные данные специалистов
 X_spec_scaled = np.load(os.path.join(RUN_DIR, f'{OUTPUT_PREFIX}_X_scaled.npy'))
 
@@ -139,7 +144,8 @@ for user_idx, (user_id, user_name, user_vec) in enumerate(zip(user_ids,
                                                               user_names, X_users_scaled)):
     row = {
         'user_id': int(user_id),
-        'user_name': str(user_name)  # временно добавили ФИО или не временно? 
+        'user_name': str(user_name),  # временно добавили ФИО или не временно? 
+        'clustering_metrics': all_metrics # добавление SS, DBI, CHI
     }
 
     for k in k_values:
@@ -205,6 +211,6 @@ for row in results_rows:
         json.dump(row, f, ensure_ascii=False, indent=2)
 
 # все пользователи, скорее всего уберем
-all_users_file = os.path.join(OUTPUT_DIR_USER, 'all_users.json')
-with open(all_users_file, 'w', encoding='utf-8') as f:
-    json.dump(results_rows, f, ensure_ascii=False, indent=2)
+# all_users_file = os.path.join(OUTPUT_DIR_USER, 'all_users.json')
+# with open(all_users_file, 'w', encoding='utf-8') as f:
+#     json.dump(results_rows, f, ensure_ascii=False, indent=2)

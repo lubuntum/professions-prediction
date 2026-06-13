@@ -18,6 +18,10 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 
+# добавляем для SS, DBI, CHI
+from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
+import json
+
 import get_parsing
 
 # чтобы в консоли ничего не было 
@@ -77,6 +81,8 @@ with open(scaler_path, 'wb') as f:
     pickle.dump(scaler, f)
 
 # ----------------------- КЛАСТЕРИЗАЦИЯ -----------------------
+# Создаём словарь для хранения SS, DBI, CHI метрик
+all_metrics = {}
 
 # K от 2 до количества профессий
 for k in range(2, n_professions + 1):  
@@ -84,12 +90,24 @@ for k in range(2, n_professions + 1):
     # n_init=10 использовали, увеличу до 50 для точности, будет грузить систему
     kmeans = KMeans(n_clusters=k, random_state=42, n_init=50)
     cluster_labels = kmeans.fit_predict(X_scaled)
-       
+
     # Сохраняем модель для текущего K
     model_filename = f'{OUTPUT_PREFIX}_kmeans_k{k}.pkl'
     model_path = os.path.join(run_dir, model_filename)
     with open(model_path, 'wb') as f:
         pickle.dump(kmeans, f)
+
+    # Расчёт метрик SS, DBI, CHI
+    ss = silhouette_score(X_scaled, cluster_labels)
+    dbi = davies_bouldin_score(X_scaled, cluster_labels)
+    chi = calinski_harabasz_score(X_scaled, cluster_labels)
+
+    # Сохраняем в словарь SS, DBI, CHI метрики
+    all_metrics[k] = {
+        'silhouette_score': float(ss),
+        'davies_bouldin_index': float(dbi),
+        'calinski_harabasz_index': float(chi)
+    }
 
 # ----------------------- PCA ПРЕОБРАЗОВАНИЕ -----------------------
 # Обучаем PCA для 2D и 3D визуализации (используем данные после кластеризации)
@@ -135,3 +153,8 @@ np.save(os.path.join(run_dir, f'{OUTPUT_PREFIX}_X_pca_3d.npy'), X_pca_3d)
 
 # 5. Признаки
 np.save(os.path.join(run_dir, f'{OUTPUT_PREFIX}_feature_cols.npy'), feature_cols)
+
+# 6. Сохранение метрик SS, DBI, CHI
+metrics_path = os.path.join(run_dir, f'{OUTPUT_PREFIX}_all_metrics.pkl')
+with open(metrics_path, 'wb') as f:
+    pickle.dump(all_metrics, f)
