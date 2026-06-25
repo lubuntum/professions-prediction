@@ -46,7 +46,7 @@ def parsing(parse_type):
         return None
 
     # список нужных тестовых значений
-    necessary = ["extravag_introver_score",
+    necessary = ["extrav_introver_score",
                  "neirotizm_score", "company_worker",
                  "chairman", "shaper", "plant",
                  "resource_investigator", "monitor_evaluation",

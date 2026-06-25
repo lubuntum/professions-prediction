@@ -68,6 +68,6 @@ def create_prediction():
             print(response.text)
 
         # Задержка 2 секунда между запросами
-        time.sleep(2)
+        # time.sleep(2)
 
 create_prediction()
