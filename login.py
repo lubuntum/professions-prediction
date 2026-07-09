@@ -1,16 +1,15 @@
+import os
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def start():
-    """
-    Тут будет документация или нет
-    """
-
-    url = "https://api.evcg.ru/api/auth/login"
+    url = f"{os.getenv('API_BASE_URL')}/api/auth/login"
     data = {
-        "email": "lubuntum@gmail.com",  
-        "password": "123456789"         
+        "email": os.getenv("API_EMAIL"),
+        "password": os.getenv("API_PASSWORD")
     }
-
     response = requests.post(url, json=data, timeout=10)
     return response.text
 
