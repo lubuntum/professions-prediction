@@ -1,0 +1,29 @@
+{
+  "test_mapping": {
+    "Temperament": {
+      "param_names": ["extrav_introver_score", "neirotizm_score", "sincerity_score"],
+      "is_active": true
+    },
+    "Group-Roles": {
+      "param_names": ["company_worker", "chairman", "shaper", "plant", "resource_investigator", "monitor_evaluation", "team_worker", "completer_finisher"],
+      "is_active": true
+    },
+    "Engineering-Thinking": {
+      "param_names": ["engineering_thinking_level"],
+      "is_active": true
+    },
+    "Professional-Orientation-Klimov": {
+      "param_names": ["nature_score", "tech_score", "human_score", "artistic_score", "sign_score"],
+      "is_active": false
+    },
+    "Professional-Orientation-Holland": {
+      "param_names": ["realistic", "investigative", "artistic", "social", "enterprising", "conventional"],
+      "is_active": false
+    },
+    "Intellectual-Potential": {
+      "param_names": ["iq_score"],
+      "is_active": false
+    }
+  },
+  "default_value": 0.0
+}
