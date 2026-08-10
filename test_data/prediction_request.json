@@ -1,0 +1,39 @@
+{
+  "pupilId": 123,
+  "fullName": "John Doe",
+  "psychTests": {
+    "Temperament": {
+      "completionTimeSeconds": 17,
+      "psychParams": [
+        {"param": 22, "name": "neirotizm_score"},
+        {"param": 13, "name": "extrav_introver_score"},
+        {"param": 2, "name": "sincerity_score"}
+      ],
+      "testTypeName": "Temperament",
+      "createdAt": null
+    },
+    "Group-Roles": {
+      "completionTimeSeconds": 188,
+      "psychParams": [
+        {"param": 10, "name": "chairman"},
+        {"param": 1, "name": "company_worker"},
+        {"param": 10, "name": "shaper"},
+        {"param": 10, "name": "completer_finisher"},
+        {"param": 2, "name": "resource_investigator"},
+        {"param": 3, "name": "plant"},
+        {"param": 20, "name": "monitor_evaluation"},
+        {"param": 14, "name": "team_worker"}
+      ],
+      "testTypeName": "Group-Roles",
+      "createdAt": null
+    },
+    "Engineering-Thinking": {
+      "completionTimeSeconds": null,
+      "psychParams": [
+        {"param": 19, "name": "engineering_thinking_level"}
+      ],
+      "testTypeName": "Engineering-Thinking",
+      "createdAt": null
+    }
+  }
+}
