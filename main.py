@@ -1,3 +1,5 @@
+from typing import Optional, List, Dict
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import os
@@ -10,38 +12,20 @@ import requests
 from dotenv import load_dotenv
 from scipy.spatial.distance import cdist
 
+from models.Pupil import Pupil
+from models.prediction.PredictionResponse import PredictionResponse
+from services.ParamsExtractorService import ParamsExtractorService
+
 load_dotenv()
 
 app = FastAPI(title="Career Prediction API")
 
-# --- Models for API ---
-class PupilData(BaseModel):
-    id: int
-    fullName: str
-    extrav_introver_score: float
-    neirotizm_score: float
-    company_worker: float
-    chairman: float
-    shaper: float
-    plant: float
-    resource_investigator: float
-    monitor_evaluation: float
-    team_worker: float
-    completer_finisher: float
-    engineering_thinking_level: float
-
-class PredictionResponse(BaseModel):
-    pupil_id: int
-    cluster: int
-    predicted_profession: str
-    nearest_specialist_id: int
-    distance: float
-    confidence_category: str
 
 # --- Load models on startup ---
 MODEL_DIR = "data"
 TIMESTAMP_FILE = os.path.join(MODEL_DIR, "timestamp.txt")
-
+# --- Init services ---
+extractor = ParamsExtractorService()
 def load_latest_models():
     """Load the latest clustering models"""
     with open(TIMESTAMP_FILE, 'r') as f:
@@ -112,18 +96,14 @@ def get_category(distance):
 
 # --- Prediction endpoint ---
 @app.post("/predict", response_model=PredictionResponse)
-async def predict_pupil(pupil: PupilData):
+async def predict_pupil(pupil: Pupil):
     """
     Predict profession for a single pupil
     """
     try:
+        print(models['feature_cols'])
         # 1. Convert to feature vector
-        feature_values = []
-        for col in models['feature_cols']:
-            if hasattr(pupil, col):
-                feature_values.append(getattr(pupil, col))
-            else:
-                raise ValueError(f"Missing feature: {col}")
+        feature_values = extractor.extract_features(pupil, models['feature_cols'])
         
         X_pupil = np.array(feature_values).reshape(1, -1)
         
@@ -146,15 +126,15 @@ async def predict_pupil(pupil: PupilData):
         nearest_spec_id = models['spec_ids'][nearest_spec_position]
         
         # 5. Send to API (optional)
-        await send_to_api(pupil.id, cluster, predicted_profession)
+        #await send_to_api(pupil.id, cluster, predicted_profession)
         
         return PredictionResponse(
-            pupil_id=pupil.id,
+            pupilId=pupil.pupilId,
             cluster=int(cluster),
-            predicted_profession=str(predicted_profession),
-            nearest_specialist_id=int(nearest_spec_id),
+            predictedProfession=str(predicted_profession),
+            nearestSpecialistId=int(nearest_spec_id),
             distance=float(nearest_distance),
-            confidence_category=get_category(nearest_distance)
+            confidenceCategory=get_category(nearest_distance)
         )
         
     except Exception as e:
