@@ -1,160 +1,226 @@
-"""
-Часть 1: Кластеризация данных специалистов
-===========================================
-Назначение:
-    1. Загрузить и подготовить данные о специалистах
-    2. Выполнить кластеризацию методом K-means для K = 2..N (N = количество уникальных профессий)
-    3. Сохранить результаты: центроиды кластеров, метки кластеров для каждого специалиста,
-       PCA-модель и масштабатор для учеников
-"""
+"""Load Specialist data and turn it into cluster files."""
+
+from __future__ import annotations
+
+import json
 import pickle
-import warnings
-import os
-from datetime import datetime
+from dataclasses import dataclass
+from pathlib import Path
+from urllib.parse import urljoin
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
+import requests
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
+from sklearn.metrics import calinski_harabasz_score, davies_bouldin_score, silhouette_score
+from sklearn.preprocessing import StandardScaler
 
-# добавляем для SS, DBI, CHI
-from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
-import json
-
-import get_parsing
-
-# чтобы в консоли ничего не было 
-warnings.filterwarnings('ignore')
-
-# ======================== НАСТРОЙКИ ========================
-df_spec = get_parsing.parsing("Specialist")  # Файл с данными специалистов (сервер)
-PROF_COL = 'profession'  # Название колонки с профессиями
-OUTPUT_PREFIX = 'clustering_results'  # Префикс для выходных файлов
-OUTPUT_DIR = 'data'  # Папка для сохранения результатов
-
-# Создаем папку data, если её нет
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-# Получаем текущую дату и время для имени файлов
-timestamp = datetime.now().strftime('%Y_%m_%d_%H_%M')
-
-# Сохраняем timestamp в файл (в папке data)
-timestamp_file = os.path.join(OUTPUT_DIR, 'timestamp.txt')
-with open(timestamp_file, 'a', encoding='utf-8') as f:
-    f.write(timestamp + '\n')
-
-# создается папку для запуска
-run_dir = os.path.join(OUTPUT_DIR, timestamp)
-os.makedirs(run_dir, exist_ok=True)
-
-# Сохраняем исходный DataFrame (внутри папки с timestamp)
-DF_SPEC_FILENAME = f'{OUTPUT_PREFIX}_df_spec.pkl'
-df_spec_path = os.path.join(run_dir, DF_SPEC_FILENAME)
-with open(df_spec_path, 'wb') as f:
-    pickle.dump(df_spec, f)
-
-# Определяем признаки и целевую переменную (профессию)
-# убираем Id и имя
-feature_cols = [col for col in df_spec.columns
-                if col not in [PROF_COL, 'Id', 'fullName']]
-X = df_spec[feature_cols].values
-professions = df_spec[PROF_COL].values
-unique_professions = np.unique(professions)
-n_professions = len(unique_professions)
-
-# потом убрать!!!
-# print(f"Уникальных профессий: {n_professions}")
-# print(f"Профессии: {unique_professions}")
-# print(len(df_spec))
+from mapping import ActiveFeatures, load_active_features, select_active_features
+from models import Specialist
+from settings import Settings
 
 
-# ----------------------- МАСШТАБИРОВАНИЕ -----------------------
-# Масштабируем данные (StandardScaler: вычитаем среднее, делим на std)
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
+@dataclass(frozen=True)
+class ClusterBuild:
+    specialists_count: int
+    feature_count: int
+    available_cluster_counts: tuple[int, ...]
 
-# Сохраняем scaler для использования в учениках
-SCALER_FILENAME = f'{OUTPUT_PREFIX}_scaler.pkl'
-scaler_path = os.path.join(run_dir, SCALER_FILENAME)
-with open(scaler_path, 'wb') as f:
-    pickle.dump(scaler, f)
 
-# ----------------------- КЛАСТЕРИЗАЦИЯ -----------------------
-# Создаём словарь для хранения SS, DBI, CHI метрик
-all_metrics = {}
+def required_cluster_files(cluster_count: int) -> tuple[str, ...]:
+    return (
+        "specialists.pkl",
+        "scaler.pkl",
+        f"kmeans_{cluster_count}.pkl",
+        "specialist_features.npy",
+        "professions.npy",
+        "feature_names.npy",
+        "cluster_manifest.json",
+    )
 
-# K от 2 до количества профессий
-for k in range(2, n_professions + 1):  
-    # Обучаем K-means
-    # n_init=10 использовали, увеличу до 50 для точности, будет грузить систему
-    kmeans = KMeans(n_clusters=k, random_state=42, n_init=50)
-    cluster_labels = kmeans.fit_predict(X_scaled)
 
-    # Сохраняем модель для текущего K
-    model_filename = f'{OUTPUT_PREFIX}_kmeans_k{k}.pkl'
-    model_path = os.path.join(run_dir, model_filename)
-    with open(model_path, 'wb') as f:
-        pickle.dump(kmeans, f)
+def load_specialists(settings: Settings, session: requests.Session | None = None) -> list[Specialist]:
+    """Load Specialist and PsychTest data from the protected backend endpoint."""
+    if not settings.backend_url or not settings.backend_email or not settings.backend_password:
+        raise RuntimeError(
+            "BACKEND_BASE_URL, BACKEND_SERVICE_EMAIL and BACKEND_SERVICE_PASSWORD are required"
+        )
 
-    # Расчёт метрик SS, DBI, CHI
-    ss = silhouette_score(X_scaled, cluster_labels)
-    dbi = davies_bouldin_score(X_scaled, cluster_labels)
-    chi = calinski_harabasz_score(X_scaled, cluster_labels)
+    http = session or requests.Session()
+    timeout = (settings.backend_connect_timeout, settings.backend_read_timeout)
+    login = http.post(
+        urljoin(settings.backend_url.rstrip("/") + "/", "api/auth/login"),
+        json={"email": settings.backend_email, "password": settings.backend_password},
+        timeout=timeout,
+    )
+    login.raise_for_status()
+    token = login.text.strip()
+    if not token:
+        raise RuntimeError("Backend returned an empty service token")
 
-    # Сохраняем в словарь SS, DBI, CHI метрики
-    all_metrics[k] = {
-        'silhouette_score': float(ss),
-        'davies_bouldin_index': float(dbi),
-        'calinski_harabasz_index': float(chi)
-    }
+    response = http.get(
+        urljoin(settings.backend_url.rstrip("/") + "/", "api/specialists/reference-data"),
+        headers={"Authorization": token},
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    specialists = response.json()
+    if not isinstance(specialists, list):
+        raise RuntimeError("Backend Specialist response is not a list")
+    return [Specialist.model_validate(item) for item in specialists]
 
-# ----------------------- PCA ПРЕОБРАЗОВАНИЕ -----------------------
-# Обучаем PCA для 2D и 3D визуализации (используем данные после кластеризации)
-# PCA будет нужен для учеников
 
-# PCA для 2D
-pca_2d = PCA(n_components=2)
-X_pca_2d = pca_2d.fit_transform(X_scaled)
+def create_cluster_files(
+    specialists: list[Specialist],
+    output_dir: Path,
+    active_features: ActiveFeatures,
+    cluster_count: int,
+) -> ClusterBuild:
+    """Scale Specialist features, run KMeans and write all cluster files."""
+    if not specialists:
+        raise ValueError("Backend returned no Specialist data")
 
-# PCA для 3D
-pca_3d = PCA(n_components=3)
-X_pca_3d = pca_3d.fit_transform(X_scaled)
+    rows = []
+    for specialist in specialists:
+        row = {
+            "specialist_id": specialist.specialist_id,
+            "profession": specialist.profession,
+        }
+        row.update(
+            zip(
+                active_features.names,
+                select_active_features(specialist.psych_tests, active_features),
+                strict=True,
+            )
+        )
+        rows.append(row)
 
-# Сохраняем PCA модели
-PCA_2D_FILENAME = f'{OUTPUT_PREFIX}_pca_2d.pkl'
-pca_2d_path = os.path.join(run_dir, PCA_2D_FILENAME)
-with open(pca_2d_path, 'wb') as f:
-    pickle.dump(pca_2d, f)
+    specialist_table = pd.DataFrame(rows)
+    if specialist_table["specialist_id"].duplicated().any():
+        raise ValueError("Specialist data contains duplicate IDs")
+    if specialist_table["profession"].isna().any() or (
+        specialist_table["profession"].str.strip() == ""
+    ).any():
+        raise ValueError("Every Specialist must have a Profession")
 
-PCA_3D_FILENAME = f'{OUTPUT_PREFIX}_pca_3d.pkl'
-pca_3d_path = os.path.join(run_dir, PCA_3D_FILENAME)
-with open(pca_3d_path, 'wb') as f:
-    pickle.dump(pca_3d, f)
+    feature_matrix = specialist_table[list(active_features.names)].astype(float).to_numpy()
+    professions = specialist_table["profession"].to_numpy()
+    maximum_cluster_count = min(len(np.unique(professions)), len(specialist_table) - 1)
+    available_cluster_counts = tuple(range(2, maximum_cluster_count + 1))
+    if cluster_count not in available_cluster_counts:
+        raise ValueError(
+            f"PREDICTION_CLUSTER_COUNT={cluster_count} is unavailable; "
+            f"available values: {available_cluster_counts}"
+        )
 
-# ----------------------- СОХРАНЕНИЕ ДАННЫХ ДЛЯ Учеников -----------------------
+    output_dir.mkdir(parents=True, exist_ok=False)
+    with (output_dir / "specialists.pkl").open("wb") as target:
+        pickle.dump(specialist_table, target)
 
-# 1. Профессии специалистов
-np.save(os.path.join(run_dir, f'{OUTPUT_PREFIX}_professions.npy'), professions)
+    scaler = StandardScaler()
+    scaled_specialists = scaler.fit_transform(feature_matrix)
+    with (output_dir / "scaler.pkl").open("wb") as target:
+        pickle.dump(scaler, target)
 
-# 2. Масштабированные данные
-np.save(os.path.join(run_dir, f'{OUTPUT_PREFIX}_X_scaled.npy'), X_scaled)
+    metrics: dict[int, dict[str, float]] = {}
+    for current_count in available_cluster_counts:
+        kmeans = KMeans(n_clusters=current_count, random_state=42, n_init=50)
+        labels = kmeans.fit_predict(scaled_specialists)
+        with (output_dir / f"kmeans_{current_count}.pkl").open("wb") as target:
+            pickle.dump(kmeans, target)
+        np.save(output_dir / f"labels_{current_count}.npy", labels)
+        metrics[current_count] = {
+            "silhouette_score": float(silhouette_score(scaled_specialists, labels)),
+            "davies_bouldin_index": float(davies_bouldin_score(scaled_specialists, labels)),
+            "calinski_harabasz_index": float(
+                calinski_harabasz_score(scaled_specialists, labels)
+            ),
+        }
 
-# 3. Метки кластеров для каждого K
-for k in range(2, n_professions + 1):
-    model_path = os.path.join(run_dir, f'{OUTPUT_PREFIX}_kmeans_k{k}.pkl')
-    with open(model_path, 'rb') as f:
-        kmeans = pickle.load(f)
-    np.save(os.path.join(run_dir, f'{OUTPUT_PREFIX}_labels_k{k}.npy'), kmeans.labels_)
+    with (output_dir / "cluster_metrics.pkl").open("wb") as target:
+        pickle.dump(metrics, target)
 
-# 4. PCA данные
-np.save(os.path.join(run_dir, f'{OUTPUT_PREFIX}_X_pca_2d.npy'), X_pca_2d)
-np.save(os.path.join(run_dir, f'{OUTPUT_PREFIX}_X_pca_3d.npy'), X_pca_3d)
+    pca_2d = PCA(n_components=2)
+    np.save(output_dir / "specialists_pca_2d.npy", pca_2d.fit_transform(scaled_specialists))
+    with (output_dir / "pca_2d.pkl").open("wb") as target:
+        pickle.dump(pca_2d, target)
 
-# 5. Признаки
-np.save(os.path.join(run_dir, f'{OUTPUT_PREFIX}_feature_cols.npy'), feature_cols)
+    pca_3d = PCA(n_components=3)
+    np.save(output_dir / "specialists_pca_3d.npy", pca_3d.fit_transform(scaled_specialists))
+    with (output_dir / "pca_3d.pkl").open("wb") as target:
+        pickle.dump(pca_3d, target)
 
-# 6. Сохранение метрик SS, DBI, CHI
-metrics_path = os.path.join(run_dir, f'{OUTPUT_PREFIX}_all_metrics.pkl')
-with open(metrics_path, 'wb') as f:
-    pickle.dump(all_metrics, f)
+    np.save(output_dir / "specialist_features.npy", scaled_specialists)
+    np.save(output_dir / "professions.npy", professions)
+    np.save(output_dir / "feature_names.npy", np.asarray(active_features.names, dtype=object))
+    (output_dir / "cluster_manifest.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "cluster_count": cluster_count,
+                "available_cluster_counts": list(available_cluster_counts),
+                "feature_names": list(active_features.names),
+                "specialists_count": len(specialist_table),
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    validate_cluster_files(output_dir, cluster_count, active_features.names)
+    return ClusterBuild(len(specialist_table), len(active_features.names), available_cluster_counts)
+
+
+def validate_cluster_files(
+    cluster_folder: Path,
+    cluster_count: int,
+    expected_feature_names: tuple[str, ...],
+) -> None:
+    """Reject incomplete or incompatible cluster folders."""
+    missing = [
+        name for name in required_cluster_files(cluster_count) if not (cluster_folder / name).is_file()
+    ]
+    if missing:
+        raise ValueError(f"Cluster folder is incomplete; missing files: {missing}")
+
+    feature_names = tuple(
+        str(value)
+        for value in np.load(cluster_folder / "feature_names.npy", allow_pickle=True).tolist()
+    )
+    if feature_names != expected_feature_names:
+        raise ValueError("Cluster feature order does not match the active mapping")
+
+    scaled_specialists = np.load(cluster_folder / "specialist_features.npy")
+    professions = np.load(cluster_folder / "professions.npy", allow_pickle=True)
+    specialists = pd.read_pickle(cluster_folder / "specialists.pkl")
+    if scaled_specialists.ndim != 2 or scaled_specialists.shape[1] != len(feature_names):
+        raise ValueError("Specialist feature matrix has an invalid shape")
+    if (
+        scaled_specialists.shape[0] == 0
+        or len(professions) != scaled_specialists.shape[0]
+        or len(specialists) != scaled_specialists.shape[0]
+    ):
+        raise ValueError("Cluster files contain inconsistent Specialist counts")
+
+    with (cluster_folder / "scaler.pkl").open("rb") as source:
+        pickle.load(source)
+    with (cluster_folder / f"kmeans_{cluster_count}.pkl").open("rb") as source:
+        pickle.load(source)
+
+
+def main() -> None:
+    settings = Settings.from_env()
+    active_features = load_active_features(settings.mapping_path)
+    from clusters import update_clusters
+
+    state = update_clusters(settings, active_features, force=True)
+    print(
+        f"Clusters updated: folder={state.active_folder}, "
+        f"specialists={state.specialists_count}, updated={state.updated_at.isoformat()}"
+    )
+
+
+if __name__ == "__main__":
+    main()

@@ -3,6 +3,9 @@ test.xlsx
 __pycache__
 data
 data_user
+cache
+.venv
+.pytest_cache
 visualizations
 category.txt
 user_id_211.json

@@ -1,6 +1,5 @@
 {
   "pupilId": 123,
-  "fullName": "John Doe",
   "psychTests": {
     "Temperament": {
       "completionTimeSeconds": 17,

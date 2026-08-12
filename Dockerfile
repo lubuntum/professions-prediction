@@ -7,8 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Create directories
-RUN mkdir -p data data_user visualizations
+RUN mkdir -p data cache
 
 EXPOSE 8000
 
