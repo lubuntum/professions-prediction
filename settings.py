@@ -26,6 +26,7 @@ class Settings:
     backend_connect_timeout: float
     backend_read_timeout: float
     cluster_count: int
+    math_profession_filter: str # новое поле
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -50,4 +51,5 @@ class Settings:
             backend_connect_timeout=float(os.getenv("BACKEND_CONNECT_TIMEOUT_SECONDS", "5")),
             backend_read_timeout=float(os.getenv("BACKEND_READ_TIMEOUT_SECONDS", "60")),
             cluster_count=int(os.getenv("PREDICTION_CLUSTER_COUNT", "5")),
+            math_profession_filter=os.getenv("MATH_PROFESSION_FILTER", "горный мастер")
         )

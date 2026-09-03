@@ -9,6 +9,8 @@ from mapping import load_active_features
 from models import Health, Prediction, Pupil
 from prediction import PredictionError, predict_pupil
 from settings import Settings
+from math_server.models import MathPrediction # НОВЫЙ ИМПОРТ
+from math_server.prediction import predict_math  # НОВЫЙ ИМПОРТ
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -52,6 +54,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail={"code": "PREDICTION_FAILED", "message": "Prediction could not be calculated"},
             ) from error
+
+    # ===== НОВЫЙ ЭНДПОИНТ =====
+    @app.post("/predict-math", response_model=MathPrediction)
+    def predict_math_endpoint(pupil: Pupil) -> MathPrediction:
+        try:
+            return predict_math(pupil, app_settings)
+        except Exception as error:
+            logging.exception("math prediction failed pupilId=%s", pupil.pupil_id)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={"code": "MATH_PREDICTION_FAILED", "message": "Math prediction could not be calculated"},
+            ) from error    
 
     return app
 
