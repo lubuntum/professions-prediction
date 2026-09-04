@@ -9,7 +9,12 @@ from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 
-
+'''
+TODO
+    1. Удалить из Settings  math_profession_filter=os.getenv("MATH_PROFESSION_FILTER", "горный мастер")
+    2. метод specialists возвращает results (ЭТО ВСЕ ГОДНЫЕ СПЕЦИАЛИСТЫ) и потом мы их фильтруем по всем профессиям среди них
+    3. 
+'''
 @dataclass(frozen=True)
 class Settings:
     project_root: Path

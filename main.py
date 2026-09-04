@@ -64,7 +64,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             logging.exception("math prediction failed pupilId=%s", pupil.pupil_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail={"code": "MATH_PREDICTION_FAILED", "message": "Math prediction could not be calculated"},
+                detail={"code": "MATH_PREDICTION_FAILED", "message": f"Math prediction could not be calculated, {error}"},
             ) from error    
 
     return app
@@ -76,4 +76,4 @@ app = create_app()
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="localhost", port=8000)

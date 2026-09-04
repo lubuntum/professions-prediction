@@ -63,31 +63,40 @@ def load_specialists(settings: Settings) -> list[dict[str, Any]]:
     # Преобразуем в словари
     result = []
     for sp in specialists:
-        row = {
-            'specialist_id': sp.get('specialistId', 0),
-            'profession': sp.get('profession', ''),
-            'extrav_introver_score': 0.0,
-            'neirotizm_score': 0.0,
-            'engineering_thinking_level': 0.0,
-            'company_worker': 0.0,
-            'chairman': 0.0,
-            'shaper': 0.0,
-            'plant': 0.0,
-            'resource_investigator': 0.0,
-            'monitor_evaluation': 0.0,
-            'team_worker': 0.0,
-            'completer_finisher': 0.0
-        }
-        
-        # Заполняем из psychTests
-        for test in sp.get('psychTests', []):
-            for param in test.get('psychParams', []):
-                name = param.get('name')
-                value = param.get('param')
-                if name in row:
-                    row[name] = float(value) if value is not None else 0.0
-        
-        result.append(row)
+        try:
+            row = {
+                'specialist_id': sp.get('specialistId', 0),
+                'profession': sp.get('profession', ''),
+                'extrav_introver_score': 0.0,
+                'neirotizm_score': 0.0,
+                'engineering_thinking_level': 0.0,
+                'company_worker': 0.0,
+                'chairman': 0.0,
+                'shaper': 0.0,
+                'plant': 0.0,
+                'resource_investigator': 0.0,
+                'monitor_evaluation': 0.0,
+                'team_worker': 0.0,
+                'completer_finisher': 0.0
+            }
+
+            # Получаем psychTests как словарь
+            psych_tests = sp.get('psychTests', {})
+
+            # Итерируемся по значениям словаря (данным тестов)
+            for test_data in psych_tests.values():
+                # Проверяем, что test_data - это словарь и содержит psychParams
+                if isinstance(test_data, dict) and 'psychParams' in test_data:
+                    for param in test_data.get('psychParams', []):
+                        name = param.get('name')
+                        value = param.get('param')
+                        if name in row and value is not None:
+                            row[name] = float(value)
+
+            result.append(row)
+        except Exception as e:
+            print(f"Ошибка при обработке specialist_id {sp.get('specialistId', 'unknown')}: {e}")
+            continue
     
     logger.info("load_specialists: Finished, returning %d rows", len(result))
     return result
