@@ -62,6 +62,7 @@ def load_specialists(settings: Settings) -> list[dict[str, Any]]:
     
     # Преобразуем в словари
     result = []
+
     for sp in specialists:
         try:
             row = {
@@ -82,7 +83,7 @@ def load_specialists(settings: Settings) -> list[dict[str, Any]]:
 
             # Получаем psychTests как словарь
             psych_tests = sp.get('psychTests', {})
-
+            has_data = False
             # Итерируемся по значениям словаря (данным тестов)
             for test_data in psych_tests.values():
                 # Проверяем, что test_data - это словарь и содержит psychParams
@@ -92,6 +93,10 @@ def load_specialists(settings: Settings) -> list[dict[str, Any]]:
                         value = param.get('param')
                         if name in row and value is not None:
                             row[name] = float(value)
+                            if float(value) != 0:  # Если есть ненулевое значение
+                                has_data = True
+            if not has_data:
+                continue
 
             result.append(row)
         except Exception as e:
