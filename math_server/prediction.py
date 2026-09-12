@@ -44,7 +44,7 @@ def get_math_params(settings: Settings) -> ParamsInitial:
     
     profession_filter = settings.math_profession_filter
     logger.info("get_math_params: profession_filter = %s", profession_filter)
-    
+    #Код возмодно уже не актуален
     specialist_dicts = []
     for sp in specialists:
         row = {
@@ -61,7 +61,7 @@ def get_math_params(settings: Settings) -> ParamsInitial:
     logger.info("get_math_params: Created %d rows", len(specialist_dicts))
     df = pd.DataFrame(specialist_dicts)
     logger.info("get_math_params: DataFrame shape = %s", df.shape)
-    
+    #Подумать почему специалисты с парам 0 тестов проходят в get_specialist()
     if profession_filter:
         df = df[df['profession'].str.lower() == profession_filter.lower()]
         logger.info("get_math_params: After filter, DataFrame shape = %s", df.shape)
@@ -93,7 +93,7 @@ def predict_math(pupil: Pupil, settings: Settings) -> MathPrediction:
         
         print("Step 2: Extracting pupil data...")
         row = {'age': 14}
-        
+        #Подумать почему делает одно и тоже при разных условиях, обьединить ?
         for test in pupil.psych_tests.values():
             for param in test.psych_params:
                 if param.name in ('extrav_introver_score', 'neirotizm_score', 'engineering_thinking_level'):
@@ -136,16 +136,15 @@ def predict_math(pupil: Pupil, settings: Settings) -> MathPrediction:
         
         print("Step 8: Creating result...")
         result = MathPrediction(
-            pupil_id=pupil.pupil_id,
-            percent=round(percent, 1),
+            pupilId=pupil.pupil_id,
+            percentage=round(percent, 1),
             recommendation=recommendation,
-            scores={
-                "Айзенк_норм": round(eysenck_norm, 2),
-                "Белбин_норм": round(belbin_norm, 2),
-                "Беннет_норм": round(bennet_norm, 2),
-                "Итоговый_балл": round(total_score, 2),
-                "Аддитивная_полезность": round(additive_utility, 4)
-            }
+            aizenNorm= round(eysenck_norm, 2),
+            belbinNorm= round(belbin_norm, 2),
+            bennetNorm= round(bennet_norm, 2),
+            finalScore= round(total_score, 2),
+            utility= round(additive_utility, 4) #TODO profession, ,multiplicative?
+
         )
         
         print("=" * 50)
