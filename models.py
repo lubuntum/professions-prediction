@@ -24,6 +24,7 @@ class PsychTest(ApiModel):
 class Pupil(ApiModel):
     pupil_id: int = Field(alias="pupilId", gt=0)
     psych_tests: dict[str, PsychTest] = Field(alias="psychTests")
+    age: int = Field(alias="age")
 
 
 class Specialist(ApiModel):
