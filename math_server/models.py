@@ -9,6 +9,7 @@ class MathPrediction(ApiModel):
     pupil_id: int = Field(alias="pupilId")
     percentage: float = Field(alias="percentage")
     recommendation: str = Field(alias="recommendation")
+    recommendation_complex: str = Field(alias="recommendationComplex")
     aizen_norm: float = Field(alias="aizenNorm")
     belbin_norm: float = Field(alias="belbinNorm")
     bennet_norm: float = Field(alias="bennetNorm")

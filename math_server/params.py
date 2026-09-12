@@ -35,7 +35,9 @@ def load_params_raw(path: Path) -> ParamsRaw:
         eysenck=data['eysenck'],
         bennet=data['bennet'],
         belbin=data['belbin'],
-        weights=data['weights']
+        weights=data['weights'],
+        max_utility=data['max_utility'],
+        max_product=data['max_product'],
     )
 
 
