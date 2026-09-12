@@ -33,7 +33,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             clusters_updated_at=clusters.updated_at,
         )
 
-    @app.post("/predict", response_model=Prediction)
+    @app.post("/predict/cluster", response_model=Prediction)
     def predict(pupil: Pupil) -> Prediction:
         try:
             return predict_pupil(pupil, app_settings)
@@ -56,7 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ) from error
 
     # ===== НОВЫЙ ЭНДПОИНТ =====
-    @app.post("/predict-math", response_model=MathPrediction)
+    @app.post("/predict/math", response_model=MathPrediction)
     def predict_math_endpoint(pupil: Pupil) -> MathPrediction:
         try:
             return predict_math(pupil, app_settings)
