@@ -1,5 +1,6 @@
 {
   "pupilId": 123,
+  "age": 14,
   "psychTests": {
     "Temperament": {
       "completionTimeSeconds": 17,
