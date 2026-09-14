@@ -5,8 +5,8 @@ from pydantic import Field
 from models import ApiModel
 
 
-class MathPrediction(ApiModel):
-    pupil_id: int = Field(alias="pupilId")
+class MathPredictionItem(ApiModel):
+    profession: str = Field(alias="profession")
     percentage: float = Field(alias="percentage")
     recommendation: str = Field(alias="recommendation")
     recommendation_complex: str = Field(alias="recommendationComplex")
@@ -15,3 +15,8 @@ class MathPrediction(ApiModel):
     bennet_norm: float = Field(alias="bennetNorm")
     final_score: float = Field(alias="finalScore")
     utility: float = Field(alias="utility")
+
+
+class MathPrediction(ApiModel):
+    pupil_id: int = Field(alias="pupilId")
+    professions: list[MathPredictionItem] = Field(alias="professions")
