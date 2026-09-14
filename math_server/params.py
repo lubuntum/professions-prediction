@@ -48,3 +48,14 @@ def save_params_raw(params: ParamsRaw, path: Path) -> None:
         json.dumps(params.__dict__, indent=2, ensure_ascii=False),
         encoding='utf-8'
     )
+
+def profession_slug(profession: str) -> str:
+    """Безопасное имя файла из названия профессии."""
+    import re
+    slug = re.sub(r"[^\w\-]+", "_", profession.strip().lower(), flags=re.UNICODE)
+    return slug.strip("_") or "unknown"
+
+
+def params_paths_for(folder: Path, profession: str) -> tuple[Path, Path]:
+    slug = profession_slug(profession)
+    return folder / f"{slug}.json", folder / f"{slug}_raw.json"
