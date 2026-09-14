@@ -56,16 +56,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ) from error
 
     # ===== НОВЫЙ ЭНДПОИНТ =====
+    from math_server.models import MathPrediction
+    from math_server.prediction import predict_math
+
     @app.post("/predict/math", response_model=MathPrediction)
     def predict_math_endpoint(pupil: Pupil) -> MathPrediction:
         try:
             return predict_math(pupil, app_settings)
+        except ClustersUnavailableError as error:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"code": "CLUSTERS_UNAVAILABLE", "message": str(error)},
+            ) from error
         except Exception as error:
             logging.exception("math prediction failed pupilId=%s", pupil.pupil_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail={"code": "MATH_PREDICTION_FAILED", "message": f"Math prediction could not be calculated, {error}"},
-            ) from error    
+                detail={"code": "MATH_PREDICTION_FAILED", "message": "Math prediction could not be calculated"},
+            ) from error
 
     return app
 

@@ -129,7 +129,8 @@ def cluster_files_are_valid(
             active_features.names,
         )
         return True
-    except Exception:
+    except Exception as error:
+        logger.exception("cluster validation failed folder=%s: %s", state.active_folder, error)
         return False
 
 
