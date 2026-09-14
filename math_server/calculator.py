@@ -25,6 +25,9 @@ class ParamsRaw:
 
 
 # ===== ВОЗРАСТНАЯ КОРРЕКТИРОВКА =====
+def _safe_ratio(numerator: float, denominator: float) -> float:
+    """x/0 → 0, 0/0 → 0, иначе обычное деление."""
+    return numerator / denominator if denominator else 0.0
 def adjust_extroversion(value: float, age: int) -> float:
     """=E4+(12-E4)*(1-C4/21)"""
     return value + (12 - value) * (1 - age / 21)
@@ -115,8 +118,10 @@ def calc_eysenck(row: dict, params: ParamsInitial) -> float:
     neuro_max = params.neuroticism['max']
     neuro_mean = params.neuroticism['mean']
 
-    return e * (1 - min(e - extro_min, extro_max - e) / extro_mean) + \
-           n * (1 - min(n - neuro_min, neuro_max - n) / neuro_mean)
+    return (
+            e * (1 - _safe_ratio(min(e - extro_min, extro_max - e), extro_mean))
+            + n * (1 - _safe_ratio(min(n - neuro_min, neuro_max - n), neuro_mean))
+    )
 
 
 def apply_eysenck_threshold(val: float, raw: ParamsRaw) -> float:
@@ -143,7 +148,7 @@ def calc_belbin(row: dict, params: ParamsInitial) -> float:
         max_val = params.belbin['maxs'][i]
         mean_val = params.belbin['means'][i]
 
-        total += s * (1 - min(s - min_val, max_val - s) / mean_val)
+        total += s * (1 - _safe_ratio(min(s - min_val, max_val - s), mean_val))
 
     return total
 
@@ -162,7 +167,7 @@ def calc_bennet(row: dict, params: ParamsInitial) -> float:
     max_val = params.bennet['max']
     mean_val = params.bennet['mean']
 
-    return b_adj * (1 - min(b_adj - min_val, max_val - b_adj) / mean_val)
+    return b_adj * (1 - _safe_ratio(min(b_adj - min_val, max_val - b_adj), mean_val))
 
 def apply_bennet_threshold(row: dict, params: ParamsInitial, norm_val: float) -> float:
     """
@@ -297,3 +302,8 @@ def build_params_raw(specialists: list[dict], params_initial: ParamsInitial) -> 
         max_utility=float(df['total_score'].max()),
         max_product=float(df['weighted_product'].max()),
     )
+def build_params_for_profession(profession_rows: list[dict]) -> tuple[ParamsInitial, ParamsRaw]:
+    """Рассчитать params_initial и params_raw для одной профессии."""
+    params = build_params_initial(profession_rows)
+    raw = build_params_raw(profession_rows, params)
+    return params, raw
