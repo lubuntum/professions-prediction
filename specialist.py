@@ -17,6 +17,8 @@ from sklearn.metrics import calinski_harabasz_score, davies_bouldin_score, silho
 from sklearn.preprocessing import StandardScaler
 
 from mapping import ActiveFeatures, load_active_features, select_active_features
+from math_server.calculator import build_params_for_profession
+from math_server.params import params_paths_for, save_params_initial, save_params_raw
 from models import Specialist
 from settings import Settings
 
@@ -97,6 +99,18 @@ def create_cluster_files(
         rows.append(row)
 
     specialist_table = pd.DataFrame(rows)
+    #filter for specialists
+    feature_columns = list(active_features.names)
+    has_data = (specialist_table[feature_columns].astype(float) != 0.0).any(axis=1)
+    before = len(specialist_table)
+    specialist_table = specialist_table[has_data].reset_index(drop=True)
+    print(
+        "specialists filtered: kept=%d, dropped=%d",
+        len(specialist_table), before - len(specialist_table),
+    )
+    if specialist_table.empty:
+        raise ValueError("All Specialists have empty feature vectors")
+    #end of filter
     if specialist_table["specialist_id"].duplicated().any():
         raise ValueError("Specialist data contains duplicate IDs")
     if specialist_table["profession"].isna().any() or (
@@ -168,7 +182,16 @@ def create_cluster_files(
         ),
         encoding="utf-8",
     )
-
+    #После обновления кластеров, обновляем мат модели сразу
+    #Общее обновление двух систем одновременно
+    math_params_folder = output_dir / "math_params"
+    math_params_folder.mkdir()
+    for profession, group in specialist_table.groupby("profession"):
+        rows = group.to_dict("records")
+        params, raw = build_params_for_profession(rows)
+        params_path, raw_path = params_paths_for(math_params_folder, profession)
+        save_params_initial(params, params_path)
+        save_params_raw(raw, raw_path)
     validate_cluster_files(output_dir, cluster_count, active_features.names)
     return ClusterBuild(len(specialist_table), len(active_features.names), available_cluster_counts)
 
@@ -208,6 +231,12 @@ def validate_cluster_files(
         pickle.load(source)
     with (cluster_folder / f"kmeans_{cluster_count}.pkl").open("rb") as source:
         pickle.load(source)
+    #Проверка папок для математики
+    math_params_folder = cluster_folder / "math_params"
+    if not math_params_folder.is_dir():
+        raise ValueError("Cluster folder is missing math_params directory")
+    if not any(math_params_folder.glob("*.json")):
+        raise ValueError("Cluster folder has no math params files")
 
 
 def main() -> None:
