@@ -7,10 +7,10 @@ from fastapi import FastAPI, HTTPException, status
 from clusters import ClustersUnavailableError, cluster_status
 from mapping import load_active_features
 from models import Health, Prediction, Pupil
-from prediction import PredictionError, predict_pupil
+from prediction import IncompletePupilError, PredictionError, predict_pupil
 from settings import Settings
 from math_server.models import MathPrediction # НОВЫЙ ИМПОРТ
-from math_server.prediction import predict_math  # НОВЫЙ ИМПОРТ
+from math_server.prediction import IncompletePupilError, predict_math  # НОВЫЙ ИМПОРТ
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -42,6 +42,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail={"code": "CLUSTERS_UNAVAILABLE", "message": str(error)},
             ) from error
+        
+        except IncompletePupilError as error:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "code": "PUPIL_INCOMPLETE_DATA",
+                    "message": "Pupil data is incomplete",
+                    "missing": error.missing,
+                },
+            ) from error        
+        
         except PredictionError as error:
             logging.exception("prediction failed pupilId=%s", pupil.pupil_id)
             raise HTTPException(

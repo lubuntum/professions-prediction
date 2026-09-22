@@ -14,7 +14,7 @@ import pandas as pd
 from scipy.spatial.distance import cdist
 
 from clusters import ClusterState, active_cluster_folder, ensure_clusters_ready
-from mapping import ActiveFeatures, load_active_features, select_active_features
+from mapping import ActiveFeatures, load_active_features, missing_active_features, select_active_features
 from models import Prediction, Pupil
 from settings import Settings
 from specialist import validate_cluster_files
@@ -25,6 +25,11 @@ logger = logging.getLogger(__name__)
 
 class PredictionError(RuntimeError):
     pass
+
+class IncompletePupilError(PredictionError):
+    def __init__(self, missing: list[str]):
+        super().__init__("Pupil data is incomplete")
+        self.missing = missing
 
 
 @dataclass(frozen=True)
@@ -53,6 +58,11 @@ def predict_pupil(pupil: Pupil, settings: Settings) -> Prediction:
     started_at = time.perf_counter()
     logger.info("prediction started pupilId=%s", pupil.pupil_id)
     active_features = load_active_features(settings.mapping_path)
+
+    missing = missing_active_features(pupil.psych_tests, active_features)
+    if missing:
+        raise IncompletePupilError(missing)
+
     cluster_state = ensure_clusters_ready(settings, active_features)
     clusters = get_loaded_clusters(settings, active_features, cluster_state)
 

@@ -16,7 +16,7 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import calinski_harabasz_score, davies_bouldin_score, silhouette_score
 from sklearn.preprocessing import StandardScaler
 
-from mapping import ActiveFeatures, load_active_features, select_active_features
+from mapping import ActiveFeatures, load_active_features, missing_active_features, select_active_features
 from math_server.calculator import build_params_for_profession
 from math_server.params import params_paths_for, save_params_initial, save_params_raw
 from models import Specialist
@@ -85,29 +85,23 @@ def create_cluster_files(
 
     rows = []
     for specialist in specialists:
-        row = {
-            "specialist_id": specialist.specialist_id,
-            "profession": specialist.profession,
-        }
-        row.update(
-            zip(
-                active_features.names,
-                select_active_features(specialist.psych_tests, active_features),
-                strict=True,
-            )
-        )
+        missing = missing_active_features(specialist.psych_tests, active_features)
+        if missing:
+            continue  # специалист не прошёл фильтр
+        row = {"specialist_id": specialist.specialist_id, "profession": specialist.profession}
+        row.update(zip(active_features.names, select_active_features(specialist.psych_tests, active_features), strict=True))
         rows.append(row)
 
     specialist_table = pd.DataFrame(rows)
     #filter for specialists
-    feature_columns = list(active_features.names)
-    has_data = (specialist_table[feature_columns].astype(float) != 0.0).any(axis=1)
-    before = len(specialist_table)
-    specialist_table = specialist_table[has_data].reset_index(drop=True)
-    print(
-        "specialists filtered: kept=%d, dropped=%d",
-        len(specialist_table), before - len(specialist_table),
-    )
+    # feature_columns = list(active_features.names)
+    # has_data = (specialist_table[feature_columns].astype(float) != 0.0).any(axis=1)
+    # before = len(specialist_table)
+    # specialist_table = specialist_table[has_data].reset_index(drop=True)
+    # print(
+    #     "specialists filtered: kept=%d, dropped=%d",
+    #     len(specialist_table), before - len(specialist_table),
+    # )
     if specialist_table.empty:
         raise ValueError("All Specialists have empty feature vectors")
     #end of filter

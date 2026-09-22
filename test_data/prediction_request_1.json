@@ -1,0 +1,39 @@
+{
+  "pupilId": 457,
+  "age": 13,
+  "psychTests": {
+    "Temperament": {
+      "completionTimeSeconds": 17,
+      "psychParams": [
+        {"param": 14, "name": "neirotizm_score"},
+        {"param": 17, "name": "extrav_introver_score"},
+        {"param": 2, "name": "sincerity_score"}
+      ],
+      "testTypeName": "Temperament",
+      "createdAt": null
+    },
+    "Group-Roles": {
+      "completionTimeSeconds": 188,
+      "psychParams": [
+        {"param": 5, "name": "chairman"},
+        {"param": 10, "name": "company_worker"},
+        {"param": 9, "name": "shaper"},
+        {"param": 2, "name": "completer_finisher"},
+        {"param": 14, "name": "resource_investigator"},
+        {"param": 16, "name": "plant"},
+        {"param": 7, "name": "monitor_evaluation"},
+        {"param": 7, "name": "team_worker"}
+      ],
+      "testTypeName": "Group-Roles",
+      "createdAt": null
+    },
+    "Engineering-Thinking": {
+      "completionTimeSeconds": null,
+      "psychParams": [
+        {"param": 19, "name": "engineering_thinking_level"}
+      ],
+      "testTypeName": "Engineering-Thinking",
+      "createdAt": null
+    }
+  }
+}

@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 
 from clusters import ClusterState, active_cluster_folder, ensure_clusters_ready
-from mapping import ActiveFeatures, load_active_features
+from mapping import ActiveFeatures, load_active_features, missing_active_features
 from models import Pupil
 from settings import Settings
 from math_server.models import MathPrediction, MathPredictionItem
@@ -12,12 +12,9 @@ from math_server.calculator import (
     BELBIN_COLS,
     ParamsInitial,
     ParamsRaw,
-    apply_belbin_threshold,
-    apply_bennet_threshold,
-    apply_eysenck_threshold,
-    calc_belbin,
-    calc_bennet,
-    calc_eysenck,
+    calc_pupil_belbin,
+    calc_pupil_bennet,
+    calc_pupil_eysenck,
     calc_recommendation_complex,
 )
 from math_server.params import (
@@ -25,6 +22,11 @@ from math_server.params import (
     load_params_raw,
     params_paths_for,
 )
+
+class IncompletePupilError(RuntimeError):
+    def __init__(self, missing: list[str]):
+        super().__init__("Pupil data is incomplete")
+        self.missing = missing
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +50,9 @@ def load_params_for_profession(folder: Path, profession_slug: str) -> tuple[Para
 
 
 def _pupil_row(pupil: Pupil) -> dict:
-    row: dict = {"age": pupil.age if pupil.age is not None else 14}
+    if pupil.age is None:
+        raise ValueError(f"Pupil {pupil.pupil_id} has no age")
+    row: dict = {"age": pupil.age}
     for test in pupil.psych_tests.values():
         for param in test.psych_params:
             if param.name in (
@@ -67,9 +71,9 @@ def _predict_one(
     params_raw: ParamsRaw,
     row: dict,
 ) -> MathPredictionItem:
-    eysenck_norm = apply_eysenck_threshold(calc_eysenck(row, params), params_raw)
-    belbin_norm = apply_belbin_threshold(calc_belbin(row, params), params_raw)
-    bennet_norm = apply_bennet_threshold(row, params, calc_bennet(row, params))
+    eysenck_norm = calc_pupil_eysenck(row, params, params_raw)
+    belbin_norm = calc_pupil_belbin(row, params, params_raw)
+    bennet_norm = calc_pupil_bennet(row, params, params_raw)
 
     total_score = eysenck_norm + belbin_norm + bennet_norm
     w = params.weights
@@ -108,6 +112,11 @@ def _predict_one(
 
 def predict_math(pupil: Pupil, settings: Settings) -> MathPrediction:
     active_features = load_active_features(settings.mapping_path)
+
+    missing = missing_active_features(pupil.psych_tests, active_features)
+    if missing:
+        raise IncompletePupilError(missing)
+    
     state = ensure_clusters_ready(settings, active_features)
     folder = active_cluster_folder(settings, state)
     params_folder = folder / "math_params"

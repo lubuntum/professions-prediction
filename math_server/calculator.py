@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
 from dataclasses import dataclass
 from typing import Any
 
@@ -24,10 +23,13 @@ class ParamsRaw:
     max_product: float
 
 
-# ===== ВОЗРАСТНАЯ КОРРЕКТИРОВКА =====
+# ===== ВСПОМОГАТЕЛЬНОЕ =====
 def _safe_ratio(numerator: float, denominator: float) -> float:
     """x/0 → 0, 0/0 → 0, иначе обычное деление."""
     return numerator / denominator if denominator else 0.0
+
+
+# ===== ВОЗРАСТНАЯ КОРРЕКТИРОВКА (только для учеников) =====
 def adjust_extroversion(value: float, age: int) -> float:
     """=E4+(12-E4)*(1-C4/21)"""
     return value + (12 - value) * (1 - age / 21)
@@ -99,36 +101,17 @@ ADJUST_FUNCTIONS = {
     'monitor_evaluation': adjust_analyst,
     'team_worker': adjust_inspirer,
     'completer_finisher': adjust_controller,
-    'engineering_thinking_level': adjust_bennet
+    'engineering_thinking_level': adjust_bennet,
 }
 
 
-# ===== РАСЧЁТ НОРМИРОВАННЫХ БАЛЛОВ =====
-def calc_eysenck(row: dict, params: ParamsInitial) -> float:
-    """Нормированный балл Айзенка без порога отсечения."""
-    age = row.get('age', 0)
-    e = adjust_extroversion(row.get('extrav_introver_score', 0), age)
-    n = adjust_neuroticism(row.get('neirotizm_score', 0), age)
-
-    extro_min = params.extroversion['min']
-    extro_max = params.extroversion['max']
-    extro_mean = params.extroversion['mean']
-
-    neuro_min = params.neuroticism['min']
-    neuro_max = params.neuroticism['max']
-    neuro_mean = params.neuroticism['mean']
-
-    return (
-            e * (1 - _safe_ratio(min(e - extro_min, extro_max - e), extro_mean))
-            + n * (1 - _safe_ratio(min(n - neuro_min, neuro_max - n), neuro_mean))
-    )
-
-
+# ===== ПОРОГИ ОТСЕЧЕНИЯ (только для учеников) =====
 def apply_eysenck_threshold(val: float, raw: ParamsRaw) -> float:
     """Обрезка по порогам из params_raw (только для учеников)."""
     min_eysenck = raw.eysenck['min']
     max_eysenck = raw.eysenck['max']
     return val if (val > min_eysenck - 1 and val < max_eysenck + 1) else 0.0
+
 
 def apply_belbin_threshold(total: float, raw: ParamsRaw) -> float:
     """Обрезка по нижней границе из params_raw (только для учеников)."""
@@ -136,65 +119,103 @@ def apply_belbin_threshold(total: float, raw: ParamsRaw) -> float:
     return total if total > min_belbin - 1 else 0.0
 
 
-def calc_belbin(row: dict, params: ParamsInitial) -> float:
-    """Сумма по 8 ролям: s*(1 - min(s - min, max - s) / mean). Без порога отсечения."""
-    age = row.get('age', 0)
-    total = 0
+# ===== РАСЧЁТ ДЛЯ СПЕЦИАЛИСТОВ (без age, без порогов) =====
+def calc_specialist_eysenck(row: dict, params: ParamsInitial) -> float:
+    """Нормированный балл Айзенка для специалиста: сырые значения, без age."""
+    e = row['extrav_introver_score']
+    n = row['neirotizm_score']
+    return (
+        e * (1 - _safe_ratio(
+            min(e - params.extroversion['min'], params.extroversion['max'] - e),
+            params.extroversion['mean'],
+        ))
+        + n * (1 - _safe_ratio(
+            min(n - params.neuroticism['min'], params.neuroticism['max'] - n),
+            params.neuroticism['mean'],
+        ))
+    )
 
+
+def calc_specialist_belbin(row: dict, params: ParamsInitial) -> float:
+    """Сумма по 8 ролям для специалиста: сырые значения, без age."""
+    total = 0.0
     for i, col in enumerate(BELBIN_COLS):
-        s = ADJUST_FUNCTIONS[col](row.get(col, 0), age)
-
+        s = row[col]
         min_val = params.belbin['mins'][i]
         max_val = params.belbin['maxs'][i]
         mean_val = params.belbin['means'][i]
-
         total += s * (1 - _safe_ratio(min(s - min_val, max_val - s), mean_val))
-
     return total
 
 
-def calc_bennet(row: dict, params: ParamsInitial) -> float:
-    """
-    Чистая нормировка Беннета, без порогов отсечения.
-    =AE4*(1-МИН(AE4-$J$20;$J$21-AE4)/$J$22)
-    """
-    age = row.get('age', 0)
-    b_orig = row.get('engineering_thinking_level', 0)
+def calc_specialist_bennet(row: dict, params: ParamsInitial) -> float:
+    """Нормированный балл Беннета для специалиста: сырое значение, без age."""
+    b = row['engineering_thinking_level']
+    return b * (1 - _safe_ratio(
+        min(b - params.bennet['min'], params.bennet['max'] - b),
+        params.bennet['mean'],
+    ))
 
+
+# ===== РАСЧЁТ ДЛЯ УЧЕНИКОВ (с age, с порогами) =====
+def calc_pupil_eysenck(row: dict, params: ParamsInitial, params_raw: ParamsRaw) -> float:
+    """Нормированный балл Айзенка для ученика: с age, с порогами."""
+    age = row['age']
+    e = adjust_extroversion(row['extrav_introver_score'], age)
+    n = adjust_neuroticism(row['neirotizm_score'], age)
+    val = (
+        e * (1 - _safe_ratio(
+            min(e - params.extroversion['min'], params.extroversion['max'] - e),
+            params.extroversion['mean'],
+        ))
+        + n * (1 - _safe_ratio(
+            min(n - params.neuroticism['min'], params.neuroticism['max'] - n),
+            params.neuroticism['mean'],
+        ))
+    )
+    return apply_eysenck_threshold(val, params_raw)
+
+
+def calc_pupil_belbin(row: dict, params: ParamsInitial, params_raw: ParamsRaw) -> float:
+    """Сумма по 8 ролям для ученика: с age, с порогом по нижней границе."""
+    age = row['age']
+    total = 0.0
+    for i, col in enumerate(BELBIN_COLS):
+        s = ADJUST_FUNCTIONS[col](row[col], age)
+        min_val = params.belbin['mins'][i]
+        max_val = params.belbin['maxs'][i]
+        mean_val = params.belbin['means'][i]
+        total += s * (1 - _safe_ratio(min(s - min_val, max_val - s), mean_val))
+    return apply_belbin_threshold(total, params_raw)
+
+
+def calc_pupil_bennet(row: dict, params: ParamsInitial, params_raw: ParamsRaw) -> float:
+    """
+    Нормированный балл Беннета для ученика (по users.py):
+      (1) если b_adj вне коридора [min, max] -> 0
+      (2) если norm_val <= min -> 0
+    """
+    age = row['age']
+    b_orig = row['engineering_thinking_level']
     b_adj = adjust_bennet(b_orig, age) if b_orig > 0 else 0
 
     min_val = params.bennet['min']
     max_val = params.bennet['max']
     mean_val = params.bennet['mean']
 
-    return b_adj * (1 - _safe_ratio(min(b_adj - min_val, max_val - b_adj), mean_val))
-
-def apply_bennet_threshold(row: dict, params: ParamsInitial, norm_val: float) -> float:
-    """
-    Обрезка Беннета для учеников (по истине из users.py):
-      (1) если b_adj вне коридора [min, max] -> 0
-      (3) если norm_val <= min -> 0
-    """
-    age = row.get('age', 0)
-    b_orig = row.get('engineering_thinking_level', 0)
-    b_adj = adjust_bennet(b_orig, age) if b_orig > 0 else 0
-
-    min_val = params.bennet['min']
-    max_val = params.bennet['max']
-
-    # (1) отсев по коридору
     if b_adj < min_val or b_adj > max_val:
         return 0.0
 
-    # (3) финальный отсев
+    norm_val = b_adj * (1 - _safe_ratio(min(b_adj - min_val, max_val - b_adj), mean_val))
+
     if norm_val > min_val:
         return norm_val
-    else:
-        return 0.0
+    return 0.0
+
 
 def calc_recommendation_complex(row: dict, simple_recommendation: str) -> str:
     """
-    Сложная рекомендация (по истине из users.py).
+    Сложная рекомендация (по users.py).
 
     Если простая = "не рекомендуем" — сложная тоже "не рекомендуем".
     Иначе смотрим на:
@@ -206,9 +227,9 @@ def calc_recommendation_complex(row: dict, simple_recommendation: str) -> str:
     if simple_recommendation == "не рекомендуем":
         return "не рекомендуем"
 
-    age = row.get('age', 0)
-    company_worker = row.get('company_worker', 0)
-    eng = row.get('engineering_thinking_level', 0)
+    age = row['age']
+    company_worker = row['company_worker']
+    eng = row['engineering_thinking_level']
 
     s4 = adjust_worker_bee(company_worker, age)
     ac4 = eng
@@ -218,12 +239,12 @@ def calc_recommendation_complex(row: dict, simple_recommendation: str) -> str:
 
     if min(s4, ac4, ae4) == 0:
         return "рекомендуем частично"
-    else:
-        return "рекомендуем"
+    return "рекомендуем"
+
 
 # ===== ФОРМИРОВАНИЕ ПАРАМЕТРОВ =====
 def build_params_initial(specialists: list[dict]) -> ParamsInitial:
-    """Рассчитать параметры на основе данных специалистов."""
+    """Рассчитать params_initial на основе сырых данных специалистов."""
     import pandas as pd
 
     df = pd.DataFrame(specialists)
@@ -232,42 +253,41 @@ def build_params_initial(specialists: list[dict]) -> ParamsInitial:
         extroversion={
             'min': float(df['extrav_introver_score'].min()),
             'max': float(df['extrav_introver_score'].max()),
-            'mean': float(df['extrav_introver_score'].mean())
+            'mean': float(df['extrav_introver_score'].mean()),
         },
         neuroticism={
             'min': float(df['neirotizm_score'].min()),
             'max': float(df['neirotizm_score'].max()),
-            'mean': float(df['neirotizm_score'].mean())
+            'mean': float(df['neirotizm_score'].mean()),
         },
         bennet={
             'min': float(df['engineering_thinking_level'].min()),
             'max': float(df['engineering_thinking_level'].max()),
-            'mean': float(df['engineering_thinking_level'].mean())
+            'mean': float(df['engineering_thinking_level'].mean()),
         },
         belbin={
             'cols': BELBIN_COLS,
             'mins': [float(df[col].min()) for col in BELBIN_COLS],
             'maxs': [float(df[col].max()) for col in BELBIN_COLS],
-            'means': [float(df[col].mean()) for col in BELBIN_COLS]
+            'means': [float(df[col].mean()) for col in BELBIN_COLS],
         },
         weights={
             'eysenck': 0.35,
             'bennet': 0.3,
-            'belbin': 0.35
-        }
+            'belbin': 0.35,
+        },
     )
 
-# ===== ФОРМИРОВАНИЕ СЫРЫХ ПАРАМЕТРОВ (после нормировки) =====
+
 def build_params_raw(specialists: list[dict], params_initial: ParamsInitial) -> ParamsRaw:
-    """Рассчитать параметры на основе нормированных баллов специалистов."""
+    """Рассчитать params_raw на основе нормированных баллов специалистов (без age)."""
     import pandas as pd
 
     df = pd.DataFrame(specialists)
 
-    # Нормированные баллы специалистов — теми же calc_*, что и для учеников
-    df['eysenck_raw'] = df.apply(lambda r: calc_eysenck(r, params_initial), axis=1)
-    df['belbin_raw'] = df.apply(lambda r: calc_belbin(r, params_initial), axis=1)
-    df['bennet_raw'] = df.apply(lambda r: calc_bennet(r, params_initial), axis=1)
+    df['eysenck_raw'] = df.apply(lambda r: calc_specialist_eysenck(r, params_initial), axis=1)
+    df['belbin_raw'] = df.apply(lambda r: calc_specialist_belbin(r, params_initial), axis=1)
+    df['bennet_raw'] = df.apply(lambda r: calc_specialist_bennet(r, params_initial), axis=1)
 
     w = params_initial.weights
 
@@ -302,6 +322,8 @@ def build_params_raw(specialists: list[dict], params_initial: ParamsInitial) -> 
         max_utility=float(df['total_score'].max()),
         max_product=float(df['weighted_product'].max()),
     )
+
+
 def build_params_for_profession(profession_rows: list[dict]) -> tuple[ParamsInitial, ParamsRaw]:
     """Рассчитать params_initial и params_raw для одной профессии."""
     params = build_params_initial(profession_rows)

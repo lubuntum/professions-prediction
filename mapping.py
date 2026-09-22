@@ -61,3 +61,46 @@ def select_active_features(
             active_features.default_value if value is None else float(value)
         )
     return values
+
+def missing_active_features(
+    psych_tests: Mapping[str, PsychTest],
+    active_features: ActiveFeatures,
+) -> list[str]:
+    """Return names of active features that are absent or null in the given tests.
+
+    Mirrors the old API behaviour: a user is only considered valid when all
+    active tests and all their parameters are present and non-null. Zero is a
+    valid value and is NOT treated as missing.
+    """
+    missing: list[str] = []
+    for feature_name in active_features.names:
+        test = psych_tests.get(active_features.test_by_feature[feature_name])
+        if test is None:
+            missing.append(feature_name)
+            continue
+        value = next(
+            (param.value for param in test.psych_params if param.name == feature_name),
+            None,
+        )
+        if value is None:
+            missing.append(feature_name)
+    return missing
+
+def missing_active_features(
+    psych_tests: Mapping[str, PsychTest],
+    active_features: ActiveFeatures,
+) -> list[str]:
+    """Return names of active features that are absent or null."""
+    missing: list[str] = []
+    for feature_name in active_features.names:
+        test = psych_tests.get(active_features.test_by_feature[feature_name])
+        if test is None:
+            missing.append(feature_name)
+            continue
+        value = next(
+            (param.value for param in test.psych_params if param.name == feature_name),
+            None,
+        )
+        if value is None:
+            missing.append(feature_name)
+    return missing
